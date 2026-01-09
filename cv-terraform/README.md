@@ -1,191 +1,312 @@
-# Terraform Fixes - Quick Update
+# Static CV Website on AWS with Terraform
 
-Modified files only - replace these in your existing `cv-website-terraform` directory.
+Production-ready Terraform infrastructure for deploying a static CV website on AWS using S3, CloudFront, ACM, and Route 53.
 
-## 🔧 What Was Fixed
+## Architecture
 
-### 1. S3 Lifecycle Configuration (Lines 57, 97)
-**Issue:** Warning about missing filter attribute  
-**Fix:** Added `filter {}` to lifecycle rules
+- **S3**: Private bucket for website content (no public access)
+- **CloudFront**: CDN with HTTPS, custom domain, security headers
+- **ACM**: SSL/TLS certificate (DNS validation)
+- **Route 53**: DNS records pointing to CloudFront
+- **Security**: Origin Access Control (OAC), HSTS, CSP, and modern TLS
 
-### 2. CloudFront Response Headers Policy (Lines 183-235)
-**Issue:** CSP header in wrong block causing deployment error  
-**Fix:** Moved `Content-Security-Policy` from `custom_headers_config` to `security_headers_config`
+## Prerequisites
 
-### 3. New Documentation
-**Added:** TROUBLESHOOTING.md with solutions for common issues
+1. **AWS Account** with appropriate permissions:
+   - S3, CloudFront, ACM, Route 53, IAM
+2. **Terraform** >= 1.5 installed ([Download](https://www.terraform.io/downloads))
+3. **AWS CLI** configured with credentials ([Setup Guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html))
+4. **Existing Route 53 Hosted Zone** for `ibeesproduction.com`
 
-## 📦 Files Included
+## Quick Start
 
-```
-terraform-fixes/
-├── main.tf                # Fixed Terraform configuration
-├── TROUBLESHOOTING.md     # New troubleshooting guide
-└── README.md              # This file
-```
-
-## 🚀 How to Apply These Fixes
-
-### Option 1: Replace Files (Recommended)
+### 1. Configure AWS Credentials
 
 ```bash
-# Navigate to your terraform directory
+# Configure AWS CLI with your credentials
+aws configure
+
+# Or set environment variables
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
+export AWS_DEFAULT_REGION="ap-southeast-2"
+```
+
+### 2. Initialize Terraform
+
+```bash
+# Navigate to project directory
 cd cv-website-terraform
 
-# Backup current files
-cp main.tf main.tf.backup
-
-# Replace with fixed versions
-cp /path/to/terraform-fixes/main.tf .
-cp /path/to/terraform-fixes/TROUBLESHOOTING.md .
-
-# Verify changes
-terraform validate
-
-# Deploy
-terraform apply
-```
-
-### Option 2: Manual Update
-
-If you've made custom changes to `main.tf`, apply these specific changes:
-
-#### Fix 1: S3 Lifecycle - Line 57
-```hcl
-# Add this line:
-resource "aws_s3_bucket_lifecycle_configuration" "website" {
-  bucket = aws_s3_bucket.website.id
-
-  rule {
-    id     = "cleanup-old-versions"
-    status = "Enabled"
-    
-    filter {}  # ← ADD THIS LINE
-    
-    noncurrent_version_expiration {
-      noncurrent_days = 90
-    }
-    # ...
-  }
-}
-```
-
-#### Fix 2: S3 Lifecycle (Logs) - Line 97
-```hcl
-# Add this line:
-resource "aws_s3_bucket_lifecycle_configuration" "logs" {
-  # ...
-  rule {
-    id     = "expire-logs"
-    status = "Enabled"
-    
-    filter {}  # ← ADD THIS LINE
-    
-    expiration {
-      days = 90
-    }
-  }
-}
-```
-
-#### Fix 3: CloudFront Headers - Lines 183-235
-```hcl
-resource "aws_cloudfront_response_headers_policy" "security_headers" {
-  # ...
-  
-  security_headers_config {
-    # ... existing headers ...
-    
-    # ADD THIS BLOCK (move from custom_headers):
-    content_security_policy {
-      content_security_policy = "default-src 'self'; img-src 'self' data: https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
-      override                = true
-    }
-  }
-
-  custom_headers_config {
-    # REMOVE Content-Security-Policy from here
-    
-    # KEEP only this:
-    items {
-      header   = "Permissions-Policy"
-      override = true
-      value    = "geolocation=(), microphone=(), camera=()"
-    }
-  }
-}
-```
-
-## ✅ Verification
-
-After applying fixes:
-
-```bash
-# Validate configuration
-terraform validate
-# Expected: Success! The configuration is valid.
-
-# Check plan
-terraform plan
-# Expected: No warnings, clean plan
-
-# Deploy
-terraform apply
-```
-
-## 🎯 What These Fixes Enable
-
-- ✅ No Terraform warnings during `plan` or `apply`
-- ✅ CloudFront security headers deploy correctly
-- ✅ S3 lifecycle policies work as expected
-- ✅ Proper CSP header configuration
-- ✅ Full security header suite
-
-## 📊 Changed Lines Summary
-
-| File | Lines Changed | Type |
-|------|---------------|------|
-| main.tf | 57 | Added `filter {}` |
-| main.tf | 97 | Added `filter {}` |
-| main.tf | 183-235 | Restructured headers policy |
-| TROUBLESHOOTING.md | New file | Added documentation |
-
-## 💡 Notes
-
-- These fixes are **backward compatible**
-- No changes to Terraform state required
-- Existing deployments can be updated with `terraform apply`
-- All other configuration remains unchanged
-
-## 🆘 If You Still Have Issues
-
-1. Check TROUBLESHOOTING.md for common errors
-2. Ensure you're using AWS Provider version ~> 5.0
-3. Run `terraform init -upgrade` to update providers
-4. Verify AWS credentials are configured
-
-## 📞 Quick Reference
-
-```bash
-# Full deployment from scratch
+# Initialize Terraform (downloads providers)
 terraform init
-terraform validate
-terraform plan
-terraform apply
-
-# Update existing deployment
-terraform plan
-terraform apply
-
-# If things go wrong
-terraform destroy  # Remove everything
-terraform apply    # Redeploy
 ```
 
----
+### 3. Review and Customize Variables (Optional)
 
-**Version:** 2.0 (Fixed)  
-**Date:** January 2026  
-**Compatibility:** Terraform >= 1.5.0, AWS Provider ~> 5.0
+Edit `terraform.tfvars` to customize:
 
-Your Terraform configuration is now error-free and ready to deploy! 🚀
+```hcl
+domain_name      = "indranilbiswas.ibeesproduction.com"
+hosted_zone_name = "ibeesproduction.com"
+aws_region       = "ap-southeast-2"
+enable_logging   = false
+
+tags = {
+  Project     = "CV-Website"
+  Owner       = "Indranil Biswas"
+  Environment = "Production"
+  ManagedBy   = "Terraform"
+}
+```
+
+### 4. Plan Infrastructure Changes
+
+```bash
+# Review what will be created
+terraform plan
+```
+
+### 5. Deploy Infrastructure
+
+```bash
+# Apply the infrastructure
+terraform apply
+
+# Type 'yes' when prompted to confirm
+```
+
+**⏱️ Expected Deployment Time**: 30-45 minutes
+- ACM Certificate Validation: 5-30 minutes
+- CloudFront Distribution: 15-30 minutes
+
+### 6. Upload Website Files
+
+After deployment completes, upload your CV website files:
+
+```bash
+# Get the S3 bucket name from outputs
+BUCKET_NAME=$(terraform output -raw s3_bucket_name)
+
+# Sync your local website files to S3
+# Replace ./site-content/ with your website directory
+aws s3 sync ./site-content/ s3://${BUCKET_NAME}/ \
+  --delete \
+  --cache-control "public, max-age=3600"
+
+# Invalidate CloudFront cache to see changes immediately
+DISTRIBUTION_ID=$(terraform output -raw cloudfront_distribution_id)
+aws cloudfront create-invalidation \
+  --distribution-id ${DISTRIBUTION_ID} \
+  --paths "/*"
+```
+
+### 7. Access Your Website
+
+```bash
+# Get your website URL
+terraform output website_url
+
+# Example output: https://indranilbiswas.ibeesproduction.com
+```
+
+## Project Structure
+
+```
+cv-website-terraform/
+├── README.md                 # This file
+├── versions.tf              # Terraform and provider version constraints
+├── providers.tf             # AWS provider configuration
+├── variables.tf             # Input variable definitions
+├── main.tf                  # Main infrastructure resources
+├── outputs.tf               # Output values
+├── terraform.tfvars         # Variable values (optional)
+└── .gitignore              # Git ignore file
+```
+
+## Resources Created
+
+| Resource Type | Resource Name | Purpose |
+|--------------|---------------|---------|
+| S3 Bucket | `indranilbiswas-ibeesproduction-com-content` | Website content storage (private) |
+| S3 Bucket Policy | - | Grants CloudFront OAC read access |
+| CloudFront Distribution | - | CDN with custom domain and HTTPS |
+| CloudFront OAC | - | Secure access to S3 bucket |
+| CloudFront Response Headers Policy | - | Security headers (HSTS, CSP, etc.) |
+| ACM Certificate | - | SSL/TLS certificate in us-east-1 |
+| Route 53 A Record | `indranilbiswas.ibeesproduction.com` | IPv4 alias to CloudFront |
+| Route 53 AAAA Record | `indranilbiswas.ibeesproduction.com` | IPv6 alias to CloudFront |
+| Route 53 Validation Records | - | ACM DNS validation |
+
+## Outputs
+
+After deployment, the following outputs are available:
+
+```bash
+# View all outputs
+terraform output
+
+# View specific output
+terraform output website_url
+terraform output s3_bucket_name
+terraform output cloudfront_distribution_id
+```
+
+## Security Features
+
+✅ **Private S3 Bucket**: No public access, CloudFront uses OAC  
+✅ **HTTPS Only**: HTTP automatically redirects to HTTPS  
+✅ **Modern TLS**: Minimum TLS 1.2 (2021 configuration)  
+✅ **Security Headers**: HSTS, CSP, X-Frame-Options, X-Content-Type-Options  
+✅ **HTTP/2 and HTTP/3**: Enabled for better performance  
+✅ **SPA Support**: 403/404 errors route to /index.html  
+
+## Cost Estimate
+
+Monthly costs (approximate):
+
+- **CloudFront**: $0.085/GB + $0.0075 per 10,000 requests
+- **S3 Storage**: $0.023/GB (first 50TB)
+- **Route 53**: $0.50/hosted zone + $0.40/million queries
+- **ACM Certificate**: FREE
+
+**Estimated Monthly Cost** (for low-traffic CV site): **$1-5 USD**
+
+## Maintenance
+
+### Update Website Content
+
+```bash
+# Sync new content
+aws s3 sync ./site-content/ s3://$(terraform output -raw s3_bucket_name)/ \
+  --delete \
+  --cache-control "public, max-age=3600"
+
+# Invalidate CloudFront cache
+aws cloudfront create-invalidation \
+  --distribution-id $(terraform output -raw cloudfront_distribution_id) \
+  --paths "/*"
+```
+
+### Monitor Resources
+
+```bash
+# CloudFront distribution status
+aws cloudfront get-distribution \
+  --id $(terraform output -raw cloudfront_distribution_id) \
+  --query 'Distribution.Status'
+
+# S3 bucket size
+aws s3 ls s3://$(terraform output -raw s3_bucket_name) --summarize --recursive
+```
+
+## Troubleshooting
+
+### Issue: Website not loading after deployment
+
+**Possible Causes:**
+
+1. **ACM Certificate not validated**
+   ```bash
+   aws acm describe-certificate \
+     --certificate-arn $(terraform output -raw acm_certificate_arn) \
+     --region us-east-1 \
+     --query 'Certificate.Status'
+   ```
+   Status should be `ISSUED`
+
+2. **CloudFront distribution not deployed**
+   ```bash
+   aws cloudfront get-distribution \
+     --id $(terraform output -raw cloudfront_distribution_id) \
+     --query 'Distribution.Status'
+   ```
+   Status should be `Deployed` (takes 15-30 minutes)
+
+3. **DNS not propagated**
+   ```bash
+   dig indranilbiswas.ibeesproduction.com
+   nslookup indranilbiswas.ibeesproduction.com
+   ```
+   Can take up to 48 hours globally (usually < 1 hour)
+
+4. **No content in S3 bucket**
+   ```bash
+   aws s3 ls s3://$(terraform output -raw s3_bucket_name)/
+   ```
+   Ensure `index.html` exists
+
+5. **Browser cache**
+   - Clear browser cache
+   - Test in incognito/private mode
+
+### Issue: Certificate validation stuck
+
+If ACM certificate validation takes > 30 minutes:
+
+```bash
+# Check validation records
+aws route53 list-resource-record-sets \
+  --hosted-zone-id $(terraform output -raw route53_zone_id) \
+  --query "ResourceRecordSets[?Type=='CNAME']"
+
+# Verify hosted zone is correct
+aws route53 list-hosted-zones \
+  --query "HostedZones[?Name=='ibeesproduction.com.']"
+```
+
+## Cleanup
+
+To destroy all resources:
+
+```bash
+# WARNING: This will delete all resources including the S3 bucket content
+terraform destroy
+
+# Type 'yes' when prompted to confirm
+```
+
+**Note**: The Route 53 hosted zone for `ibeesproduction.com` will NOT be deleted as it was not created by this Terraform configuration.
+
+## Advanced Configuration
+
+### Enable CloudFront Logging
+
+Edit `terraform.tfvars`:
+
+```hcl
+enable_logging = true
+```
+
+Then apply:
+
+```bash
+terraform apply
+```
+
+Logs will be stored in a separate S3 bucket with 90-day retention.
+
+### Change CloudFront Price Class
+
+To reduce costs, use a cheaper price class:
+
+```hcl
+price_class = "PriceClass_100"  # USA, Canada, Europe
+# or
+price_class = "PriceClass_200"  # USA, Canada, Europe, Asia, Middle East, Africa
+```
+
+### Custom Security Headers
+
+Edit the `aws_cloudfront_response_headers_policy` resource in `main.tf` to customize security headers.
+
+## Support
+
+For issues or questions:
+- **Terraform Documentation**: https://registry.terraform.io/providers/hashicorp/aws/latest/docs
+- **AWS CloudFront**: https://docs.aws.amazon.com/cloudfront/
+- **AWS ACM**: https://docs.aws.amazon.com/acm/
+
+## License
+
+This infrastructure code is provided as-is for personal use.
