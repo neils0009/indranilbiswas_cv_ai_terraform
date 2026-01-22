@@ -406,8 +406,32 @@ nav {
    ============================================ */
 .skills-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: 1fr;
     gap: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Tablet: 2 columns, AI spans both */
+@media (min-width: 768px) {
+    .skills-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .highlight-card {
+        grid-column: 1 / 3; /* Span both columns */
+    }
+}
+
+/* Desktop: 3 columns, AI spans all three */
+@media (min-width: 1024px) {
+    .skills-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .highlight-card {
+        grid-column: 1 / 4; /* Span all 3 columns */
+    }
 }
 
 .skill-category h3 {
@@ -722,6 +746,12 @@ nav {
     .cert-grid {
         grid-template-columns: 1fr;
     }
+    
+    /* AI card shows first on mobile */
+    .highlight-card {
+        order: -1;
+        grid-column: 1;
+    }
 
     .timeline-meta {
         flex-direction: column;
@@ -776,7 +806,6 @@ nav {
         margin-bottom: 2rem;
     }
 }
-
 /* ============================================
    Visitor Counter Styles
    Add these to the end of your styles.css file
@@ -793,7 +822,6 @@ nav {
     margin: 1rem 0;
     font-size: 0.95rem;
     transition: all 0.3s ease;
-    animation: blink 2s ease-in-out infinite;
 }
 
 .visitor-counter:hover {
@@ -851,3 +879,50 @@ nav {
     }
 }
 
+/* ============================================
+   AI Skills Highlight Card
+   ============================================ */
+
+.highlight-card {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(124, 58, 237, 0.1) 100%);
+    border: 2px solid rgba(0, 212, 255, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.highlight-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+}
+
+.highlight-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-8px);
+    box-shadow: 0 15px 40px rgba(0, 212, 255, 0.3);
+}
+
+.highlight-card .card-icon {
+    font-size: 2.5rem;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+/* Make AI skills more prominent on mobile */
+@media (max-width: 768px) {
+    .highlight-card {
+        order: -1; /* Show AI skills first on mobile */
+    }
+}
